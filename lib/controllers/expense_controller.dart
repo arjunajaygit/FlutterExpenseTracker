@@ -1,13 +1,14 @@
-// /Users/arjun/ExpenseTracker/lib/controllers/expense_controller.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/models/expense_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:expense_tracker/screens/expense_list_screen.dart';
 
 class ExpenseController extends GetxController {
-  // Firestore instance and collection reference
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late CollectionReference _expenseCollection;
+  // Collection reference is now nullable, as it depends on a logged-in user
+  CollectionReference? _expenseCollection;
 
   // Reactive lists and variables
   var expenses = <Expense>[].obs;
@@ -26,18 +27,33 @@ class ExpenseController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _expenseCollection = _firestore.collection('expenses');
     amountController = TextEditingController();
     notesController = TextEditingController();
-    // Bind the stream of expenses to our reactive list
-    expenses.bindStream(getExpensesStream());
+
+    // Listen to authentication state to set up the correct Firestore path
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        // If user is logged in, point to their specific expenses sub-collection
+        _expenseCollection = _firestore.collection('users').doc(user.uid).collection('expenses');
+        expenses.bindStream(getExpensesStream());
+      } else {
+        // If user is logged out, clear the expenses list
+        expenses.value = [];
+        _expenseCollection = null;
+      }
+    });
+
     // Calculate total expenses whenever the expenses list changes
     ever(expenses, (_) => calculateTotal());
   }
 
-  // Stream to get real-time updates from Firestore
+  // Stream to get real-time updates from the user-specific collection
   Stream<List<Expense>> getExpensesStream() {
-    return _expenseCollection
+    // If the user is logged out, return an empty stream
+    if (_expenseCollection == null) {
+      return Stream.value([]);
+    }
+    return _expenseCollection!
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
@@ -47,7 +63,7 @@ class ExpenseController extends GetxController {
 
   // Calculate the total sum of all expenses
   void calculateTotal() {
-    totalExpenses.value = expenses.fold(0.0, (sum, item) => sum + item.amount);
+    totalExpenses.value = expenses.fold(0.0, (currentSum, item) => currentSum + item.amount);
   }
 
   // Set up the form for editing an existing expense
@@ -68,7 +84,13 @@ class ExpenseController extends GetxController {
 
   // Add or Update an expense in Firestore
   Future<void> saveExpense({String? docId}) async {
+    if (_expenseCollection == null) {
+      Get.snackbar('Error', 'You must be logged in to save expenses.', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
     if (formKey.currentState!.validate()) {
+      Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
       final newExpense = Expense(
         id: docId, // Will be null for new expenses
         category: selectedCategory.value,
@@ -79,22 +101,24 @@ class ExpenseController extends GetxController {
       );
 
       if (docId == null) {
-        // Add new expense
-        await _expenseCollection.add(newExpense.toMap());
+        await _expenseCollection!.add(newExpense.toMap());
+        Get.back();
         Get.snackbar('Success', 'Expense added successfully', snackPosition: SnackPosition.BOTTOM);
       } else {
-        // Update existing expense
-        await _expenseCollection.doc(docId).update(newExpense.toMap());
+        await _expenseCollection!.doc(docId).update(newExpense.toMap());
+        Get.back();
         Get.snackbar('Success', 'Expense updated successfully', snackPosition: SnackPosition.BOTTOM);
       }
-      Get.back(); // Go back to the list screen
+      await Future.delayed(const Duration(milliseconds: 700));
+      Get.offAll(() => ExpenseListScreen(), transition: Transition.fadeIn, duration: const Duration(milliseconds: 400));
       clearControllers();
     }
   }
 
   // Delete an expense from Firestore
   Future<void> deleteExpense(String docId) async {
-    await _expenseCollection.doc(docId).delete();
+    if (_expenseCollection == null) return;
+    await _expenseCollection!.doc(docId).delete();
     Get.snackbar('Success', 'Expense deleted successfully', snackPosition: SnackPosition.BOTTOM);
   }
 
