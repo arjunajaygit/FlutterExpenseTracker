@@ -19,13 +19,14 @@ class ExpenseListScreen extends StatelessWidget {
       appBar: AppBar(
         // Use Obx to make the title reactive to user data changes
         title: Obx(() {
-          final userName = authController.firestoreUser?['name'];
+          // This correctly checks for the Firestore user's name
+          final userName = authController.firestoreUser.value?['name'];
           if (userName == null) {
-            return Row(
+            return const Row(
               children: [
-                const Text('Welcome'),
-                const SizedBox(width: 8),
-                const SizedBox(
+                Text('Welcome'),
+                SizedBox(width: 8),
+                SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
@@ -33,6 +34,7 @@ class ExpenseListScreen extends StatelessWidget {
               ],
             );
           }
+          // THIS IS THE CORRECTED LINE
           return Text('Welcome, $userName!');
         }),
         actions: [
@@ -46,7 +48,6 @@ class ExpenseListScreen extends StatelessWidget {
         ],
       ),
       body: Column(
-        // ... rest of your UI for displaying expenses ...
         children: [
           // Total expenses summary card
           Padding(
