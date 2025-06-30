@@ -2,11 +2,11 @@
 import 'package:expense_tracker/controllers/auth_controller.dart';
 import 'package:expense_tracker/controllers/expense_controller.dart';
 import 'package:expense_tracker/screens/add_edit_expense_screen.dart';
+import 'package:expense_tracker/screens/widgets/expense_list_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 
+// This screen is now just the mobile view.
 class ExpenseListScreen extends StatelessWidget {
   final ExpenseController expenseController = Get.find();
   final AuthController authController = Get.find();
@@ -17,24 +17,8 @@ class ExpenseListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Use Obx to make the title reactive to user data changes
         title: Obx(() {
-          // This correctly checks for the Firestore user's name
           final userName = authController.firestoreUser.value?['name'];
-          if (userName == null) {
-            return const Row(
-              children: [
-                Text('Welcome'),
-                SizedBox(width: 8),
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                ),
-              ],
-            );
-          }
-          // THIS IS THE CORRECTED LINE
           return Text('Welcome, $userName!');
         }),
         actions: [
@@ -47,87 +31,12 @@ class ExpenseListScreen extends StatelessWidget {
           )
         ],
       ),
-      body: Column(
-        children: [
-          // Total expenses summary card
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Obx(() => Text(
-                      'Total Expenses: ₹${expenseController.totalExpenses.value.toStringAsFixed(2)}',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.teal,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    )),
-              ),
-            ),
-          ),
-          // List of expenses
-          Expanded(
-            child: Obx(() {
-              if (expenseController.expenses.isEmpty) {
-                return const Center(
-                    child: Text('No expenses yet. Add one!',
-                        style: TextStyle(fontSize: 18)));
-              }
-              return ListView.builder(
-                itemCount: expenseController.expenses.length,
-                itemBuilder: (context, index) {
-                  final expense = expenseController.expenses[index];
-                  return Card(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    child: Slidable(
-                      key: ValueKey(expense.id),
-                      endActionPane: ActionPane(
-                        motion: const DrawerMotion(),
-                        children: [
-                          SlidableAction(
-                            onPressed: (context) {
-                              expenseController.deleteExpense(expense.id!);
-                            },
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            icon: Icons.delete,
-                            label: 'Delete',
-                          ),
-                        ],
-                      ),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.teal.shade100,
-                          child: Icon(Icons.receipt_long, color: Colors.teal.shade800),
-                        ),
-                        title: Text(expense.category,
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(DateFormat.yMMMd().format(expense.date)),
-                        trailing: Text(
-                          '₹${expense.amount.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.teal,
-                            fontSize: 16,
-                          ),
-                        ),
-                        onTap: () {
-                          expenseController.setupEditScreen(expense);
-                          Get.to(() => AddEditExpenseScreen(expense: expense));
-                        },
-                      ),
-                    ),
-                  );
-                },
-              );
-            }),
-          ),
-        ],
-      ),
+      // The body is now the reusable widget we created.
+      body: ExpenseListWidget(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          // On mobile, tapping the FAB clears the form controllers and navigates
+          // to the dedicated form screen.
           expenseController.clearControllers();
           Get.to(() => AddEditExpenseScreen());
         },
