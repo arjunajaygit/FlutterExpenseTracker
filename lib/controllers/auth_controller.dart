@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart'; // <<<--- THIS IS THE CORRECTED IMPORT
 import 'package:expense_tracker/screens/otp_screen.dart';
+import 'package:expense_tracker/controllers/navigation_controller.dart';
 
 class AuthController extends GetxController {
   static AuthController get instance => Get.find();
@@ -182,5 +183,12 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> logout() async => await _auth.signOut();
+  Future<void> logout() async {
+    // Reset the navigation index to 0 (Home) BEFORE logging out.
+    if (Get.isRegistered<NavigationController>()) {
+      final navController = Get.find<NavigationController>();
+      navController.changePage(0);
+    }
+    await _auth.signOut();
+  }
 }

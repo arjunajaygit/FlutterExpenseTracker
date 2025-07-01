@@ -1,31 +1,27 @@
 // lib/controllers/expense_controller.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/models/expense_model.dart';
+import 'package:expense_tracker/screens/auth_wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:responsive_builder/responsive_builder.dart';
+
+// No need to import responsive_builder here anymore for the controller logic.
 
 class ExpenseController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   CollectionReference? _expenseCollection;
 
-  // Reactive lists and variables
   var expenses = <Expense>[].obs;
   var totalExpenses = 0.0.obs;
 
-  // List of categories for the dropdown
   final List<String> categories = ['Food', 'Travel', 'Bills', 'Shopping', 'Other'];
 
-  // --- Form State ---
   final formKey = GlobalKey<FormState>();
   late TextEditingController amountController;
   late TextEditingController notesController;
   var selectedCategory = 'Food'.obs;
   var selectedDate = DateTime.now().obs;
-  
-  // --- ADDED THIS LINE ---
-  // This will hold the ID of the expense we are editing. It's observable and nullable.
   final Rxn<String> editingId = Rxn<String>();
 
   @override
@@ -54,95 +50,99 @@ class ExpenseController extends GetxController {
     return _expenseCollection!
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => Expense.fromFirestore(doc)).toList();
-    });
+        .map((snapshot) => snapshot.docs.map((doc) => Expense.fromFirestore(doc)).toList());
   }
 
   void calculateTotal() {
-    totalExpenses.value = expenses.fold(0.0, (currentSum, item) => currentSum + item.amount);
+    totalExpenses.value = expenses.fold(0.0, (sum, item) => sum + item.amount);
   }
 
-  // --- MODIFIED THIS METHOD ---
-  // Set up the form for editing an existing expense
   void setupEditScreen(Expense expense) {
-    editingId.value = expense.id; // Set the reactive editing ID
+    editingId.value = expense.id;
     amountController.text = expense.amount.toString();
     notesController.text = expense.notes ?? '';
     selectedCategory.value = expense.category;
     selectedDate.value = expense.date;
   }
 
-  // --- MODIFIED THIS METHOD ---
-  // Reset form fields to their default state
   void clearControllers() {
-    editingId.value = null; // Clear the reactive editing ID
+    editingId.value = null;
     amountController.clear();
     notesController.clear();
     selectedCategory.value = 'Food';
     selectedDate.value = DateTime.now();
-    formKey.currentState?.reset(); // Also reset form validation state
+    formKey.currentState?.reset();
   }
 
-  // --- MODIFIED THIS METHOD ---
-  // Add or Update an expense in Firestore. The docId argument is no longer needed.
   Future<void> saveExpense() async {
     if (_expenseCollection == null) {
-      Get.snackbar('Error', 'You must be logged in to save expenses.', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('Error', 'You must be logged in to save expenses.');
       return;
     }
 
     if (formKey.currentState!.validate()) {
+      // Show loading dialog
       Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
       
       final isUpdating = editingId.value != null;
+      String successMessage = '';
 
       final newExpense = Expense(
-        id: editingId.value, // Use the reactive ID
+        id: editingId.value,
         category: selectedCategory.value,
         amount: double.parse(amountController.text),
         date: selectedDate.value,
         notes: notesController.text,
-        createdAt: Timestamp.now(), // Always set/update timestamp for sorting
+        createdAt: Timestamp.now(),
       );
 
       try {
         if (isUpdating) {
           await _expenseCollection!.doc(editingId.value).update(newExpense.toMap());
-          Get.back(); // Close loading dialog
-          Get.snackbar('Success', 'Expense updated successfully', snackPosition: SnackPosition.BOTTOM);
+          successMessage = 'Expense updated successfully!';
         } else {
           await _expenseCollection!.add(newExpense.toMap());
-          Get.back(); // Close loading dialog
-          Get.snackbar('Success', 'Expense added successfully', snackPosition: SnackPosition.BOTTOM);
+          successMessage = 'Expense added successfully!';
         }
 
-        // Responsive handling after save
-        if (getDeviceType(Get.mediaQuery.size) != DeviceScreenType.mobile) {
-          // On desktop/tablet, just clear the form, don't navigate
-          clearControllers();
-        } else {
-          // On mobile, navigate back to the list screen
+        // --- THIS IS THE NEW, DEFINITIVE WORKFLOW ---
+
+        // 1. Close the loading dialog if it's open.
+        if (Get.isDialogOpen ?? false) {
           Get.back();
         }
+
+        // 2. Navigate robustly using the AuthWrapper.
+        // Get.offAll() clears the entire navigation stack and pushes the AuthWrapper.
+        // The AuthWrapper will show a loading screen until the user's data is fully loaded,
+        // preventing the "Welcome, null!" bug. It is our trusted entry point.
+        Get.offAll(() => const AuthWrapper(), transition: Transition.fadeIn);
+
+        // 3. Show the success message AFTER a short delay.
+        // This gives the AuthWrapper time to build the UI before the snackbar appears.
+        Future.delayed(const Duration(milliseconds: 400), () {
+          Get.snackbar("Success", successMessage, snackPosition: SnackPosition.BOTTOM);
+        });
+
       } on FirebaseException catch (e) {
-        Get.back();
-        Get.snackbar('Error', "Failed to save expense: ${e.message}", snackPosition: SnackPosition.BOTTOM);
+        if (Get.isDialogOpen ?? false) {
+          Get.back();
+        }
+        Get.snackbar('Error', "Failed to save expense: ${e.message}");
       }
     }
   }
 
-  // Delete an expense from Firestore
   Future<void> deleteExpense(String docId) async {
     if (_expenseCollection == null) return;
     
-    // If the expense being deleted is the one currently in the form, clear the form.
+    // If deleting the expense currently being edited, clear the form.
     if(editingId.value == docId){
       clearControllers();
     }
     
     await _expenseCollection!.doc(docId).delete();
-    Get.snackbar('Success', 'Expense deleted successfully', snackPosition: SnackPosition.BOTTOM, duration: const Duration(seconds: 2));
+    Get.snackbar('Success', 'Expense deleted successfully',snackPosition: SnackPosition.BOTTOM);
   }
 
   @override
