@@ -45,22 +45,25 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // --- SECTION 2: CHARTS ---
+              // --- SECTION 2: CHARTS (with new titles and subtitles) ---
               _buildBarChart(
                 context,
-                title: 'Weekly Spending by Category',
+                title: 'Weekly Spending',
+                subtitle: 'Your expense graph for this week',
                 categorySpends: controller.weeklyCategorySpends,
               ),
               const SizedBox(height: 24),
               _buildBarChart(
                 context,
-                title: 'Monthly Spending by Category',
+                title: 'Monthly Spending',
+                subtitle: 'Your expense graph for this month',
                 categorySpends: controller.monthlyCategorySpends,
               ),
               const SizedBox(height: 24),
               _buildBarChart(
                 context,
-                title: 'Yearly Spending by Category',
+                title: 'Yearly Spending',
+                subtitle: 'Your expense graph for this year',
                 categorySpends: controller.yearlyCategorySpends,
               ),
             ],
@@ -92,13 +95,15 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBarChart(BuildContext context, {required String title, required Map<String, double> categorySpends}) {
+  // --- THIS WIDGET IS MODIFIED TO ACCEPT A SUBTITLE ---
+  Widget _buildBarChart(BuildContext context, {required String title, required String subtitle, required Map<String, double> categorySpends}) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDarkMode ? Colors.teal.shade900.withOpacity(0.5) : Colors.teal.shade400;
     final rodColor = isDarkMode ? Colors.teal.shade200 : Colors.white;
     final backgroundRodColor = isDarkMode ? Colors.teal.shade700 : Colors.teal.shade800.withOpacity(0.5);
     final titleColor = isDarkMode ? Colors.white : Colors.white;
-    
+    final subtitleColor = isDarkMode ? Colors.white70 : Colors.white70;
+
     final categories = categorySpends.keys.toList();
     final values = categorySpends.values.toList();
     final double maxY = values.isEmpty ? 100 : values.reduce((a, b) => a > b ? a : b) * 1.2;
@@ -111,8 +116,12 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Display both the title and the new subtitle
             Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: titleColor)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: TextStyle(fontSize: 14, color: subtitleColor)),
             const SizedBox(height: 32),
+            
             if (categories.isEmpty)
               const SizedBox(
                 height: 200,
@@ -151,10 +160,9 @@ class DashboardScreen extends StatelessWidget {
                           showTitles: true,
                           getTitlesWidget: (double value, TitleMeta meta) {
                             final style = TextStyle(color: titleColor, fontWeight: FontWeight.bold, fontSize: 14);
-                            // --- THIS IS THE CHANGE ---
                             String text = categories[value.toInt()];
                             if (text.isNotEmpty) {
-                              text = text[0]; // Get only the first letter
+                              text = text[0];
                             }
                             return SideTitleWidget(axisSide: meta.axisSide, child: Text(text, style: style));
                           },
