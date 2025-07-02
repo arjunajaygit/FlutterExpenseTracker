@@ -14,7 +14,7 @@ class ResponsiveLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // This widget's purpose is to choose the correct high-level layout
-    // for the current screen size. It doesn't need any changes.
+    // for the current screen size. This part doesn't need to change.
     return ScreenTypeLayout.builder(
       mobile: (BuildContext context) => ExpenseListScreen(),
       tablet: (BuildContext context) => const DesktopTabletLayout(),
@@ -23,8 +23,7 @@ class ResponsiveLayout extends StatelessWidget {
   }
 }
 
-// This is the main layout for wide screens (tablets and desktops).
-// This is the widget that needs the implementation you asked for.
+// This is the layout for wide screens (tablets and desktops).
 class DesktopTabletLayout extends StatelessWidget {
   const DesktopTabletLayout({super.key});
 
@@ -35,49 +34,70 @@ class DesktopTabletLayout extends StatelessWidget {
     
     return Scaffold(
       appBar: AppBar(
+        // This Obx ensures the title updates gracefully when user data loads.
         title: Obx(() {
           final userName = authController.firestoreUser.value?['name'];
-          return Text('Welcome, ${userName ?? '...'}');
+          if (userName == null) {
+            return const Row(
+              children: [
+                Text('Welcome'),
+                SizedBox(width: 10),
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                ),
+              ],
+            );
+          }
+          return Text('Welcome, $userName!');
         }),
+
         actions: [
-          // This PopupMenuButton provides a clean dropdown menu for user actions
-          // on desktop, which is a better UX than multiple icon buttons.
+          // This PopupMenuButton provides a clean dropdown menu for user actions on desktop.
           PopupMenuButton<int>(
-            // The 'onSelected' callback is triggered when a user taps a menu item.
-            // The 'item' variable is the 'value' we assigned to the PopupMenuItem.
+            // The onSelected callback is triggered when a user taps a menu item.
             onSelected: (item) {
               switch (item) {
-                case 0:
-                  // Value 0 corresponds to "My Profile"
-                  // We tell the NavigationController to switch to the second page (index 1).
+                case 0: // Corresponds to "Dashboard"
                   navController.changePage(1);
                   break;
-                case 1:
-                  // Value 1 corresponds to "Settings"
-                  // We use GetX's named routing to navigate to the settings screen.
+                case 1: // Corresponds to "My Profile"
+                  navController.changePage(2);
+                  break;
+                case 2: // Corresponds to "Settings"
                   Get.toNamed('/settings');
                   break;
-                case 2:
-                  // Value 2 corresponds to "Logout"
-                  // We call the logout method from the AuthController.
-                  // Note: We use the dialog here for a consistent user experience.
+                case 3: // Corresponds to "Logout"
                   Get.defaultDialog(
                     title: "Logout Confirmation",
                     middleText: "Are you sure you want to logout?",
+                    onConfirm: () {
+                      Get.back(); // Close dialog first
+                      authController.logout();
+                    },
                     textConfirm: "Logout",
                     textCancel: "Cancel",
                     confirmTextColor: Colors.white,
                     buttonColor: Theme.of(context).primaryColor,
-                    onConfirm: () => authController.logout(),
                   );
                   break;
               }
             },
-            // The 'itemBuilder' builds the list of items to show in the dropdown.
+            // The itemBuilder builds the list of items to show in the dropdown.
             itemBuilder: (context) => [
-              // --- Menu Item 1: Profile ---
               const PopupMenuItem<int>(
                 value: 0,
+                child: Row(
+                  children: [
+                    Icon(Icons.dashboard_outlined, color: Colors.black54),
+                    SizedBox(width: 12),
+                    Text('Dashboard'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<int>(
+                value: 1,
                 child: Row(
                   children: [
                     Icon(Icons.person_outline, color: Colors.black54),
@@ -86,9 +106,8 @@ class DesktopTabletLayout extends StatelessWidget {
                   ],
                 ),
               ),
-              // --- Menu Item 2: Settings ---
               const PopupMenuItem<int>(
-                value: 1,
+                value: 2,
                 child: Row(
                   children: [
                     Icon(Icons.settings_outlined, color: Colors.black54),
@@ -97,11 +116,9 @@ class DesktopTabletLayout extends StatelessWidget {
                   ],
                 ),
               ),
-              // A visual separator line in the menu
               const PopupMenuDivider(),
-              // --- Menu Item 3: Logout ---
               const PopupMenuItem<int>(
-                value: 2,
+                value: 3,
                 child: Row(
                   children: [
                     Icon(Icons.logout, color: Colors.red),
@@ -111,14 +128,15 @@ class DesktopTabletLayout extends StatelessWidget {
                 ),
               ),
             ],
-            // The icon that the user clicks to open the menu
             icon: const Icon(Icons.account_circle, size: 28),
             tooltip: "Account & Settings",
           ),
-          const SizedBox(width: 12), // Some spacing on the right edge
+          const SizedBox(width: 12),
         ],
       ),
-      // The body of the layout is our master-detail view
+      // This is the main master-detail view for the expense log.
+      // This part is only visible when the 'Home' tab (index 0) is selected.
+      // The AppShell handles switching to the Dashboard or Profile screens.
       body: Row(
         children: [
           Expanded(
