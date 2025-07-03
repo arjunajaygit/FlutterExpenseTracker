@@ -97,12 +97,13 @@ class DashboardScreen extends StatelessWidget {
 
   // --- THIS WIDGET IS MODIFIED TO ACCEPT A SUBTITLE ---
   Widget _buildBarChart(BuildContext context, {required String title, required String subtitle, required Map<String, double> categorySpends}) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDarkMode ? Colors.teal.shade900.withOpacity(0.5) : Colors.teal.shade400;
-    final rodColor = isDarkMode ? Colors.teal.shade200 : Colors.white;
-    final backgroundRodColor = isDarkMode ? Colors.teal.shade700 : Colors.teal.shade800.withOpacity(0.5);
-    final titleColor = isDarkMode ? Colors.white : Colors.white;
-    final subtitleColor = isDarkMode ? Colors.white70 : Colors.white70;
+    // Use exact color scheme matching screenshot 2
+    final cardColor = const Color(0xFF11403A); // Card background
+    final rodColor = const Color(0xFF4DB6AC); // Bar fill
+    final backgroundRodColor = const Color(0xFF17635A); // Bar background
+    final titleColor = const Color(0xFFFFFFFF); // Title text
+    final subtitleColor = const Color(0xFFB0BEC5); // Subtitle text
+    final barBorderColor = const Color(0xFF2E4D47); // Bar border/lines
 
     final categories = categorySpends.keys.toList();
     final values = categorySpends.values.toList();
@@ -116,16 +117,14 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Display both the title and the new subtitle
             Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: titleColor)),
             const SizedBox(height: 4),
             Text(subtitle, style: TextStyle(fontSize: 14, color: subtitleColor)),
             const SizedBox(height: 32),
-            
             if (categories.isEmpty)
-              const SizedBox(
+              SizedBox(
                 height: 200,
-                child: Center(child: Text("No data for this period.", style: TextStyle(color: Colors.white70))),
+                child: Center(child: Text("No data for this period.", style: TextStyle(color: subtitleColor))),
               )
             else
               SizedBox(
@@ -140,7 +139,7 @@ class DashboardScreen extends StatelessWidget {
                           final categoryName = categories[group.x.toInt()];
                           return BarTooltipItem(
                             '$categoryName\n',
-                            const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                            TextStyle(color: titleColor, fontWeight: FontWeight.bold, fontSize: 16),
                             children: <TextSpan>[
                               TextSpan(
                                 text: '₹${rod.toY.round()}',
@@ -184,7 +183,8 @@ class DashboardScreen extends StatelessWidget {
                             show: true,
                             toY: maxY,
                             color: backgroundRodColor,
-                          )
+                          ),
+                          borderSide: BorderSide(color: barBorderColor, width: 2),
                         )
                       ],
                     )),
