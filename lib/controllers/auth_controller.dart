@@ -4,6 +4,7 @@ import 'package:expense_tracker/screens/auth_wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+// <<< THIS IS THE CORRECTED IMPORT PATH
 import 'package:expense_tracker/controllers/navigation_controller.dart';
 
 class AuthController extends GetxController {
@@ -25,12 +26,12 @@ class AuthController extends GetxController {
 
   void _onUserChanged(User? user) {
     if (user == null) {
-      firestoreUser.value = null;
+      firestoreUser.value = null; // Clear user data on logout
       isInitialized.value = true;
     } else {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        _fetchFirestoreUserData(user);
-      });
+      // When user state changes to logged in, fetch their data.
+      // This is now the primary trigger for data loading after login.
+      _fetchFirestoreUserData(user);
     }
   }
 
@@ -41,16 +42,13 @@ class AuthController extends GetxController {
         firestoreUser.value = doc.data()!;
       } else {
         await user.delete();
-        Get.snackbar('Error', 'User data is corrupted. Account has been cleaned up.', snackPosition: SnackPosition.BOTTOM);
+        Get.snackbar('Error', 'User data is corrupted. Account cleaned up.', snackPosition: SnackPosition.BOTTOM);
       }
     } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied') {
-        Get.snackbar('Error', 'Session error. Please log in again.', snackPosition: SnackPosition.BOTTOM);
-      } else {
-        Get.snackbar('Error', 'Failed to load user data: ${e.message}', snackPosition: SnackPosition.BOTTOM);
-      }
+      Get.snackbar('Error', 'Failed to load user data: ${e.message}', snackPosition: SnackPosition.BOTTOM);
       await logout();
     } finally {
+      // Mark as initialized so the AuthWrapper can proceed.
       isInitialized.value = true;
     }
   }
@@ -97,22 +95,20 @@ class AuthController extends GetxController {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       Get.offAll(() => const AuthWrapper());
     } on FirebaseException catch (e) {
-      Get.back();
+      if (Get.isDialogOpen ?? false) Get.back();
       Get.snackbar('Login Failed', e.message ?? 'An unknown error occurred.', snackPosition: SnackPosition.BOTTOM);
     }
   }
 
-  // --- NEW METHOD TO CHECK IF PHONE NUMBER IS REGISTERED ---
   Future<bool> checkIfPhoneIsRegistered(String phoneNumber) async {
     try {
       Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
       final querySnapshot = await _firestore.collection('users').where('phone', isEqualTo: phoneNumber).limit(1).get();
-      if (Get.isDialogOpen ?? false) Get.back(); // Close the dialog
+      if (Get.isDialogOpen ?? false) Get.back();
 
       if (querySnapshot.docs.isNotEmpty) {
-        return true; // Phone number exists
+        return true;
       } else {
-        // Show error message and return false
         Get.snackbar('Error', 'This phone number is not registered.', snackPosition: SnackPosition.BOTTOM);
         return false;
       }
@@ -128,24 +124,23 @@ class AuthController extends GetxController {
       Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
       final querySnapshot = await _firestore.collection('users').where('phone', isEqualTo: phoneNumber).limit(1).get();
       if (querySnapshot.docs.isEmpty) {
-        Get.back();
-        Get.snackbar('Login Failed', 'This phone number is not registered.', snackPosition: SnackPosition.BOTTOM);
-        return;
+        throw FirebaseAuthException(code: 'user-not-found');
       }
       final userData = querySnapshot.docs.first.data();
       final String email = userData['email'];
+
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       Get.offAll(() => const AuthWrapper());
+
     } on FirebaseException catch (e) {
-      Get.back();
-      if (e.code == 'wrong-password' || e.code == 'INVALID_LOGIN_CREDENTIALS') {
+      if (Get.isDialogOpen ?? false) Get.back();
+      if (e.code == 'user-not-found') {
+        Get.snackbar('Login Failed', 'This phone number is not registered.', snackPosition: SnackPosition.BOTTOM);
+      } else if (e.code == 'wrong-password' || e.code == 'INVALID_LOGIN_CREDENTIALS') {
         Get.snackbar('Login Failed', 'Incorrect password. Please try again.', snackPosition: SnackPosition.BOTTOM);
       } else {
         Get.snackbar('Login Failed', e.message ?? 'An unknown error occurred.', snackPosition: SnackPosition.BOTTOM);
       }
-    } catch (e) {
-      Get.back();
-      Get.snackbar('Login Failed', 'An unexpected error occurred.', snackPosition: SnackPosition.BOTTOM);
     }
   }
 
