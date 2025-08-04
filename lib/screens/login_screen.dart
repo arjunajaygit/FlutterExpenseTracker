@@ -25,6 +25,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   String? phoneNumber;
+  
+  bool _showPasswordForPhone = false;
 
   void _loginWithEmail() {
     if (_emailFormKey.currentState!.validate()) {
@@ -33,10 +35,29 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _sendOTP() {
-    if (_phoneFormKey.currentState!.validate()) {
-      if (phoneNumber == null || phoneNumber!.isEmpty) return;
-      authController.sendOtpForLogin(phoneNumber!);
+  // --- UPDATED DYNAMIC ACTION FOR PHONE LOGIN BUTTON ---
+  void _handlePhoneNextOrLogin() async { // <-- Make the function async
+    // If password field is not visible, it's the "Next" action to check phone
+    if (!_showPasswordForPhone) {
+      if (_phoneFormKey.currentState!.validate()) {
+        if (phoneNumber == null || phoneNumber!.isEmpty) return;
+
+        // Call the new check method in the controller
+        final bool isRegistered = await authController.checkIfPhoneIsRegistered(phoneNumber!);
+        
+        // Only show the password field if the check was successful
+        if (isRegistered) {
+          setState(() {
+            _showPasswordForPhone = true;
+          });
+        }
+      }
+    } else {
+      // If password field is visible, it's the final "Login" action
+      if (_phoneFormKey.currentState!.validate()) {
+        if (phoneNumber == null || phoneNumber!.isEmpty) return;
+        authController.loginWithPhoneAndPassword(phoneNumber!, passwordController.text);
+      }
     }
   }
 
@@ -61,12 +82,15 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
               selected: {_loginMethod},
               onSelectionChanged: (Set<LoginMethod> newSelection) {
-                setState(() => _loginMethod = newSelection.first);
+                setState(() {
+                  _loginMethod = newSelection.first;
+                  _showPasswordForPhone = false;
+                  passwordController.clear();
+                });
               },
             ),
             const SizedBox(height: 24),
 
-            // Show widgets based on selected login method
             if (_loginMethod == LoginMethod.email) _buildEmailForm(),
             if (_loginMethod == LoginMethod.phone) _buildPhoneForm(),
             
@@ -102,10 +126,27 @@ class _LoginScreenState extends State<LoginScreen> {
             decoration: const InputDecoration(labelText: 'Phone Number'),
             initialCountryCode: 'IN',
             onChanged: (phone) => phoneNumber = phone.completeNumber,
-            validator: (phone) => (phone?.number ?? '').isEmpty ? 'Please enter your phone number' : null,
+            validator: (phone) {
+              if ((phone?.number ?? '').isEmpty) {
+                return 'Please enter your phone number';
+              }
+              return null;
+            },
           ),
+          if (_showPasswordForPhone) ...[
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: passwordController,
+              decoration: const InputDecoration(labelText: 'Password'),
+              obscureText: true,
+              validator: (val) => (val?.length ?? 0) < 6 ? 'Password is too short' : null,
+            ),
+          ],
           const SizedBox(height: 24),
-          ElevatedButton(onPressed: _sendOTP, child: const Text('Send OTP')),
+          ElevatedButton(
+            onPressed: _handlePhoneNextOrLogin,
+            child: Text(_showPasswordForPhone ? 'Login' : 'Next'),
+          ),
         ],
       ),
     );

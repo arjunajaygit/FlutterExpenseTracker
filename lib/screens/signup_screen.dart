@@ -18,15 +18,16 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   String? phoneNumber;
-  bool isLoading = false;
 
+  // --- MODIFIED SIGNUP METHOD ---
   void _signup() {
     if (_formKey.currentState!.validate()) {
       if (phoneNumber == null || phoneNumber!.isEmpty) {
         Get.snackbar('Error', 'Please enter and validate your phone number.', snackPosition: SnackPosition.BOTTOM);
         return;
       }
-      authController.signUpAndInitiatePhoneVerification(
+      // Call the new, simpler signup method in the controller
+      authController.signUpWithEmailAndPassword(
         name: nameController.text.trim(),
         email: emailController.text.trim(),
         password: passwordController.text,
@@ -64,7 +65,8 @@ class _SignupScreenState extends State<SignupScreen> {
                 validator: (phone) => (phone?.number ?? '').isEmpty ? 'Please enter your phone number' : null,
               ),
               const SizedBox(height: 24),
-              ElevatedButton(onPressed: _signup, child: const Text('Sign Up & Verify Phone')),
+              // Button text is updated for clarity
+              ElevatedButton(onPressed: _signup, child: const Text('Sign Up')),
               TextButton(onPressed: () => Get.back(), child: const Text('Already have an account? Login')),
             ],
           ),

@@ -9,11 +9,11 @@ import 'package:expense_tracker/services/theme_service.dart';
 import 'package:expense_tracker/screens/app_shell.dart';
 import 'package:expense_tracker/screens/login_screen.dart';
 import 'package:expense_tracker/screens/signup_screen.dart';
-import 'package:expense_tracker/screens/otp_screen.dart';
+// import 'package:expense_tracker/screens/otp_screen.dart'; // <<< DELETED THIS LINE
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart'; // <<< THIS IS THE CORRECTED LINE
+import 'package:get_storage/get_storage.dart';
 
 class AppBinding extends Bindings {
   @override
@@ -102,7 +102,7 @@ class MyApp extends StatelessWidget {
       getPages: [
         GetPage(name: '/login', page: () => LoginScreen()),
         GetPage(name: '/signup', page: () => SignupScreen()),
-        GetPage(name: '/otp', page: () => OTPScreen()),
+        // GetPage(name: '/otp', page: () => OTPScreen()), // <<< DELETED THIS LINE
         GetPage(name: '/home', page: () => const AppShell()),
         GetPage(name: '/settings', page: () => const SettingsScreen()),
       ],

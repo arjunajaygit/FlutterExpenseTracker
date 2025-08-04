@@ -3,8 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/screens/auth_wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
-import 'package:flutter/material.dart'; // <<<--- THIS IS THE CORRECTED IMPORT
-import 'package:expense_tracker/screens/otp_screen.dart';
+import 'package:flutter/material.dart';
 import 'package:expense_tracker/controllers/navigation_controller.dart';
 
 class AuthController extends GetxController {
@@ -16,7 +15,6 @@ class AuthController extends GetxController {
   final Rxn<User> firebaseUser = Rxn<User>();
   final Rxn<Map<String, dynamic>> firestoreUser = Rxn<Map<String, dynamic>>();
   final RxBool isInitialized = false.obs;
-  final Rxn<String> verificationId = Rxn<String>();
 
   @override
   void onInit() {
@@ -57,77 +55,39 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> signUpAndInitiatePhoneVerification({
+  Future<void> signUpWithEmailAndPassword({
     required String name,
     required String email,
     required String password,
     required String phoneNumber,
   }) async {
-    User? newUser;
     try {
       Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
-
+      final emailQuery = await _firestore.collection('users').where('email', isEqualTo: email).limit(1).get();
+      if (emailQuery.docs.isNotEmpty) {
+        throw 'This email address is already registered.';
+      }
       final phoneQuery = await _firestore.collection('users').where('phone', isEqualTo: phoneNumber).limit(1).get();
       if (phoneQuery.docs.isNotEmpty) {
         throw 'This phone number is already registered.';
       }
-      
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
-      newUser = userCredential.user;
+      User? newUser = userCredential.user;
       if (newUser == null) throw 'Account creation failed unexpectedly.';
-
       await _firestore.collection('users').doc(newUser.uid).set({
-        'name': name, 'email': email, 'phone': phoneNumber, 'createdAt': Timestamp.now(),
+        'name': name,
+        'email': email,
+        'phone': phoneNumber,
+        'createdAt': Timestamp.now(),
       });
-      
-      await _auth.signOut(); 
-      
-      await _auth.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          await _auth.signInWithEmailAndPassword(email: email, password: password);
-          await _auth.currentUser!.linkWithCredential(credential);
-          Get.offAll(() => const AuthWrapper());
-        },
-        verificationFailed: (e) {
-          throw FirebaseAuthException(code: 'phone-verification-failed', message: e.message);
-        },
-        codeSent: (verId, token) {
-          verificationId.value = verId;
-          Get.back();
-          Get.to(() => OTPScreen(), arguments: {'isLinking': true, 'email': email, 'password': password});
-        },
-        codeAutoRetrievalTimeout: (verId) {
-          verificationId.value = verId;
-        },
-      );
-    } catch (e) {
-      if (newUser != null) {
-        await newUser.delete().catchError((error) {
-          print("Failed to delete orphaned user: $error");
-        });
-      }
-      Get.back();
-      String errorMessage = e is FirebaseException ? e.message ?? e.toString() : e.toString();
-      Get.snackbar('Sign-up Failed', errorMessage, snackPosition: SnackPosition.BOTTOM);
-    }
-  }
-  
-  Future<void> verifyOtpAndLink({required String otp, required String email, required String password}) async {
-    if (verificationId.value == null) { Get.snackbar('Error', 'Verification expired.', snackPosition: SnackPosition.BOTTOM); return; }
-    try {
-      Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
-      PhoneAuthCredential credential = PhoneAuthProvider.credential(verificationId: verificationId.value!, smsCode: otp);
-      await _auth.currentUser!.linkWithCredential(credential);
       Get.offAll(() => const AuthWrapper());
       Future.delayed(const Duration(milliseconds: 400), () {
         Get.snackbar('Success', 'Account created successfully!', snackPosition: SnackPosition.BOTTOM);
       });
-    } on FirebaseException catch (e) {
-      Get.back();
-      await _auth.signOut();
-      Get.snackbar('Error', e.message ?? 'Invalid OTP or linking failed.', snackPosition: SnackPosition.BOTTOM);
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      String errorMessage = e is FirebaseException ? e.message ?? e.toString() : e.toString();
+      Get.snackbar('Sign-up Failed', errorMessage, snackPosition: SnackPosition.BOTTOM);
     }
   }
 
@@ -142,49 +102,54 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> sendOtpForLogin(String phoneNumber) async {
+  // --- NEW METHOD TO CHECK IF PHONE NUMBER IS REGISTERED ---
+  Future<bool> checkIfPhoneIsRegistered(String phoneNumber) async {
     try {
       Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
-      final phoneQuery = await _firestore.collection('users').where('phone', isEqualTo: phoneNumber).limit(1).get();
-      if (phoneQuery.docs.isEmpty) {
-        Get.back();
+      final querySnapshot = await _firestore.collection('users').where('phone', isEqualTo: phoneNumber).limit(1).get();
+      if (Get.isDialogOpen ?? false) Get.back(); // Close the dialog
+
+      if (querySnapshot.docs.isNotEmpty) {
+        return true; // Phone number exists
+      } else {
+        // Show error message and return false
         Get.snackbar('Error', 'This phone number is not registered.', snackPosition: SnackPosition.BOTTOM);
-        return;
+        return false;
       }
-      await _auth.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        verificationCompleted: (credential) async { 
-          await _auth.signInWithCredential(credential); 
-          Get.offAll(() => const AuthWrapper());
-        },
-        verificationFailed: (e) { Get.back(); Get.snackbar('Error', 'Phone verification failed: ${e.message}', snackPosition: SnackPosition.BOTTOM); },
-        codeSent: (verId, token) { verificationId.value = verId; Get.back(); Get.to(() => OTPScreen(), arguments: {'isLinking': false}); },
-        codeAutoRetrievalTimeout: (verId) { verificationId.value = verId; },
-      );
     } catch (e) {
-      Get.back();
+      if (Get.isDialogOpen ?? false) Get.back();
       Get.snackbar('Error', 'An unexpected error occurred.', snackPosition: SnackPosition.BOTTOM);
+      return false;
     }
   }
-  
-  Future<void> verifyOtpAndLogin(String otp) async {
-    if (verificationId.value == null) { Get.snackbar('Error', 'Verification expired.', snackPosition: SnackPosition.BOTTOM); return; }
+
+  Future<void> loginWithPhoneAndPassword(String phoneNumber, String password) async {
     try {
       Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
-      PhoneAuthCredential credential = PhoneAuthProvider.credential(verificationId: verificationId.value!, smsCode: otp);
-      await _auth.signInWithCredential(credential);
-      Get.offAll(() => const AuthWrapper()); 
-      Future.delayed(const Duration(milliseconds: 400), () {
-        Get.snackbar('Success', 'Logged in successfully!', snackPosition: SnackPosition.BOTTOM);
-      });
+      final querySnapshot = await _firestore.collection('users').where('phone', isEqualTo: phoneNumber).limit(1).get();
+      if (querySnapshot.docs.isEmpty) {
+        Get.back();
+        Get.snackbar('Login Failed', 'This phone number is not registered.', snackPosition: SnackPosition.BOTTOM);
+        return;
+      }
+      final userData = querySnapshot.docs.first.data();
+      final String email = userData['email'];
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      Get.offAll(() => const AuthWrapper());
     } on FirebaseException catch (e) {
-      Get.back(); 
-      Get.snackbar('Error', e.message ?? 'Invalid OTP or login failed.', snackPosition: SnackPosition.BOTTOM);
+      Get.back();
+      if (e.code == 'wrong-password' || e.code == 'INVALID_LOGIN_CREDENTIALS') {
+        Get.snackbar('Login Failed', 'Incorrect password. Please try again.', snackPosition: SnackPosition.BOTTOM);
+      } else {
+        Get.snackbar('Login Failed', e.message ?? 'An unknown error occurred.', snackPosition: SnackPosition.BOTTOM);
+      }
+    } catch (e) {
+      Get.back();
+      Get.snackbar('Login Failed', 'An unexpected error occurred.', snackPosition: SnackPosition.BOTTOM);
     }
   }
 
   Future<void> logout() async {
-    // Reset the navigation index to 0 (Home) BEFORE logging out.
     if (Get.isRegistered<NavigationController>()) {
       final navController = Get.find<NavigationController>();
       navController.changePage(0);
