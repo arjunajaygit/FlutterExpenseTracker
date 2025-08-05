@@ -3,7 +3,7 @@ import 'package:expense_tracker/controllers/auth_controller.dart';
 import 'package:expense_tracker/controllers/expense_controller.dart';
 import 'package:expense_tracker/controllers/navigation_controller.dart';
 import 'package:expense_tracker/main.dart';
-import 'package:expense_tracker/screens/add_edit_expense_screen.dart';
+import 'package:expense_tracker/screens/add_edit_transaction_screen.dart';
 import 'package:expense_tracker/screens/transaction_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
@@ -24,8 +24,9 @@ class DashboardScreen extends StatelessWidget {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          expenseController.clearControllers();
-          Get.to(() => AddEditExpenseScreen());
+          // When adding a new transaction, reset controllers to the 'expense' state.
+          expenseController.clearControllers(isExpense: true);
+          Get.to(() => const AddEditTransactionScreen());
         },
         shape: const CircleBorder(),
         child: Container(
@@ -87,7 +88,6 @@ class DashboardScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 20),
-                    // The Obx is now wrapped around the entire card
                     _buildBalanceCard(expenseController, currencyFormatter),
                     const SizedBox(height: 30),
                     _buildSectionHeader(context, "Recent Transactions", () {
@@ -99,7 +99,7 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             Obx(
-              () => expenseController.expenses.isEmpty
+              () => expenseController.allTransactions.isEmpty
                   ? SliverFillRemaining(
                       hasScrollBody: false,
                       child: Center(
@@ -112,16 +112,16 @@ class DashboardScreen extends StatelessWidget {
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
-                            final expense = expenseController.expenses[index];
-                            return TransactionTile(expense: expense);
+                            final transaction = expenseController.allTransactions[index];
+                            return TransactionTile(transaction: transaction);
                           },
-                          childCount: expenseController.expenses.length > 5 ? 5 : expenseController.expenses.length,
+                          childCount: expenseController.allTransactions.length > 5 ? 5 : expenseController.allTransactions.length,
                         ),
                       ),
                     ),
             ),
              const SliverToBoxAdapter(
-              child: SizedBox(height: 80),
+              child: SizedBox(height: 80), // Space for the FAB
             ),
           ],
         ),
@@ -129,10 +129,8 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // --- THIS IS THE FIX ---
-  // The entire widget is now wrapped in an Obx in the build method above.
   Widget _buildBalanceCard(ExpenseController controller, NumberFormat formatter) {
-    return Obx( // The Obx wrapper ensures the whole card rebuilds on data change
+    return Obx(
       () => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
@@ -143,13 +141,12 @@ class DashboardScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Total Expenses',
+              'Total Balance',
               style: TextStyle(color: Colors.white70, fontSize: 16),
             ),
             const SizedBox(height: 8),
-            // This no longer needs its own Obx
             Text(
-              formatter.format(controller.totalExpenses.value),
+              formatter.format(controller.totalBalance.value),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 36,
@@ -160,8 +157,8 @@ class DashboardScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildBalanceDetail(IconlyBold.arrowDownSquare, "Income", "N/A"),
-                // This will now always get the fresh value when the card rebuilds
+                _buildBalanceDetail(IconlyBold.arrowDownSquare, "Income",
+                    formatter.format(controller.totalIncome.value)),
                 _buildBalanceDetail(IconlyBold.arrowUpSquare, "Expenses",
                     formatter.format(controller.totalExpenses.value)),
               ],
