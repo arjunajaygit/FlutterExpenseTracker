@@ -37,8 +37,15 @@ class ExpenseController extends GetxController {
   var topYearlyCategory = 'N/A'.obs;
 
   final List<String> expenseCategories = [
-    'Food', 'Shopping', 'Entertainment', 'Travel', 'Bills',
-    'Home Rent', 'Pet Groom', 'Recharge', 'Other'
+    'Food',
+    'Shopping',
+    'Entertainment',
+    'Travel',
+    'Bills',
+    'Home Rent',
+    'Pet Groom',
+    'Recharge',
+    'Other'
   ];
   final List<String> incomeCategories = ['Salary', 'Bonus', 'Gift', 'Other'];
 
@@ -54,7 +61,7 @@ class ExpenseController extends GetxController {
     'Other': CategoryInfo(IconlyBold.moreCircle, Colors.grey.shade400),
     'Salary': CategoryInfo(IconlyBold.wallet, Colors.green),
     'Bonus': CategoryInfo(IconlyBold.star, Colors.yellow.shade700),
-    'Gift': CategoryInfo(IconlyBold.ticketStar, Colors.pinkAccent), // <<< ICON FIX
+    'Gift': CategoryInfo(IconlyBold.ticketStar, Colors.pinkAccent),
   };
 
   final formKey = GlobalKey<FormState>();
@@ -73,8 +80,10 @@ class ExpenseController extends GetxController {
 
     FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
-        _expenseCollection = _firestore.collection('users').doc(user.uid).collection('expenses');
-        _incomeCollection = _firestore.collection('users').doc(user.uid).collection('income');
+        _expenseCollection =
+            _firestore.collection('users').doc(user.uid).collection('expenses');
+        _incomeCollection =
+            _firestore.collection('users').doc(user.uid).collection('income');
         expenses.bindStream(getExpensesStream());
         incomes.bindStream(getIncomeStream());
       } else {
@@ -87,7 +96,7 @@ class ExpenseController extends GetxController {
         clearTotals();
       }
     });
-    
+
     everAll([expenses, incomes], (_) {
       calculateTotals();
       combineAndSortTransactions();
@@ -97,14 +106,18 @@ class ExpenseController extends GetxController {
 
   Stream<List<Expense>> getExpensesStream() {
     if (_expenseCollection == null) return Stream.value([]);
-    return _expenseCollection!.orderBy('date', descending: true).snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Expense.fromFirestore(doc)).toList());
+    return _expenseCollection!
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Expense.fromFirestore(doc)).toList());
   }
 
   Stream<List<Income>> getIncomeStream() {
     if (_incomeCollection == null) return Stream.value([]);
-    return _incomeCollection!.orderBy('date', descending: true).snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Income.fromFirestore(doc)).toList());
+    return _incomeCollection!.orderBy('date', descending: true).snapshots().map(
+        (snapshot) =>
+            snapshot.docs.map((doc) => Income.fromFirestore(doc)).toList());
   }
 
   void combineAndSortTransactions() {
@@ -127,16 +140,16 @@ class ExpenseController extends GetxController {
     totalBalance.value = 0.0;
   }
 
-  // --- MISSING METHODS ADDED BACK ---
   void processDashboardData() {
     if (expenses.isEmpty) {
       clearDashboardData();
       return;
     }
-    
+
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final startOfWeekDateOnly = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final startOfWeekDateOnly =
+        DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
     final startOfMonth = DateTime(now.year, now.month, 1);
     final startOfYear = DateTime(now.year, 1, 1);
 
@@ -145,30 +158,43 @@ class ExpenseController extends GetxController {
     final yearMap = <String, double>{};
 
     for (var expense in expenses) {
-      final expenseDateOnly = DateTime(expense.date.year, expense.date.month, expense.date.day);
+      final expenseDateOnly =
+          DateTime(expense.date.year, expense.date.month, expense.date.day);
 
       if (!expenseDateOnly.isBefore(startOfYear)) {
-        yearMap.update(expense.category, (value) => value + expense.amount, ifAbsent: () => expense.amount);
+        yearMap.update(expense.category, (value) => value + expense.amount,
+            ifAbsent: () => expense.amount);
       }
       if (!expenseDateOnly.isBefore(startOfMonth)) {
-        monthMap.update(expense.category, (value) => value + expense.amount, ifAbsent: () => expense.amount);
+        monthMap.update(expense.category, (value) => value + expense.amount,
+            ifAbsent: () => expense.amount);
       }
       if (!expenseDateOnly.isBefore(startOfWeekDateOnly)) {
-        weekMap.update(expense.category, (value) => value + expense.amount, ifAbsent: () => expense.amount);
+        weekMap.update(expense.category, (value) => value + expense.amount,
+            ifAbsent: () => expense.amount);
       }
     }
 
     weeklyCategorySpends.value = weekMap;
-    weeklyTotalSpend.value = weekMap.values.fold(0.0, (sum, item) => sum + item);
-    topWeeklyCategory.value = weekMap.isNotEmpty ? weekMap.entries.reduce((a, b) => a.value > b.value ? a : b).key : 'N/A';
-    
+    weeklyTotalSpend.value =
+        weekMap.values.fold(0.0, (sum, item) => sum + item);
+    topWeeklyCategory.value = weekMap.isNotEmpty
+        ? weekMap.entries.reduce((a, b) => a.value > b.value ? a : b).key
+        : 'N/A';
+
     monthlyCategorySpends.value = monthMap;
-    monthlyTotalSpend.value = monthMap.values.fold(0.0, (sum, item) => sum + item);
-    topMonthlyCategory.value = monthMap.isNotEmpty ? monthMap.entries.reduce((a, b) => a.value > b.value ? a : b).key : 'N/A';
+    monthlyTotalSpend.value =
+        monthMap.values.fold(0.0, (sum, item) => sum + item);
+    topMonthlyCategory.value = monthMap.isNotEmpty
+        ? monthMap.entries.reduce((a, b) => a.value > b.value ? a : b).key
+        : 'N/A';
 
     yearlyCategorySpends.value = yearMap;
-    yearlyTotalSpend.value = yearMap.values.fold(0.0, (sum, item) => sum + item);
-    topYearlyCategory.value = yearMap.isNotEmpty ? yearMap.entries.reduce((a, b) => a.value > b.value ? a : b).key : 'N/A';
+    yearlyTotalSpend.value =
+        yearMap.values.fold(0.0, (sum, item) => sum + item);
+    topYearlyCategory.value = yearMap.isNotEmpty
+        ? yearMap.entries.reduce((a, b) => a.value > b.value ? a : b).key
+        : 'N/A';
   }
 
   void clearDashboardData() {
@@ -182,21 +208,24 @@ class ExpenseController extends GetxController {
     topMonthlyCategory.value = 'N/A';
     topYearlyCategory.value = 'N/A';
   }
-  // --- END OF MISSING METHODS ---
 
   void setupEditScreen(dynamic transaction) {
     clearControllers(isExpense: transaction is Expense);
     if (transaction is Expense) {
       isEditingExpense.value = true;
       editingId.value = transaction.id;
-      amountController.text = transaction.amount.toStringAsFixed(0);
+      // --- THIS IS THE FIX ---
+      // Use .toString() instead of .toStringAsFixed(0)
+      amountController.text = transaction.amount.toString();
       notesController.text = transaction.notes ?? '';
       selectedCategory.value = transaction.category;
       selectedDate.value = transaction.date;
     } else if (transaction is Income) {
       isEditingExpense.value = false;
       editingId.value = transaction.id;
-      amountController.text = transaction.amount.toStringAsFixed(0);
+      // --- THIS IS THE FIX ---
+      // Use .toString() instead of .toStringAsFixed(0)
+      amountController.text = transaction.amount.toString();
       notesController.text = transaction.notes ?? '';
       selectedCategory.value = transaction.category;
       selectedDate.value = transaction.date;
@@ -207,24 +236,32 @@ class ExpenseController extends GetxController {
     editingId.value = null;
     amountController.clear();
     notesController.clear();
-    selectedCategory.value = isExpense ? expenseCategories.first : incomeCategories.first;
+    selectedCategory.value =
+        isExpense ? expenseCategories.first : incomeCategories.first;
     selectedDate.value = DateTime.now();
     formKey.currentState?.reset();
   }
 
   Future<void> saveExpense() async {
     if (formKey.currentState!.validate()) {
-      Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+      Get.dialog(const Center(child: CircularProgressIndicator()),
+          barrierDismissible: false);
       final isUpdating = editingId.value != null;
-      String successMessage = isUpdating ? 'Expense updated!' : 'Expense added!';
+      String successMessage =
+          isUpdating ? 'Expense updated!' : 'Expense added!';
       final newExpense = Expense(
-        id: editingId.value, category: selectedCategory.value,
-        amount: double.parse(amountController.text), date: selectedDate.value,
-        notes: notesController.text, createdAt: isUpdating ? null : Timestamp.now(),
+        id: editingId.value,
+        category: selectedCategory.value,
+        amount: double.parse(amountController.text),
+        date: selectedDate.value,
+        notes: notesController.text,
+        createdAt: isUpdating ? null : Timestamp.now(),
       );
       try {
         if (isUpdating) {
-          await _expenseCollection!.doc(editingId.value).update(newExpense.toMapForUpdate());
+          await _expenseCollection!
+              .doc(editingId.value)
+              .update(newExpense.toMapForUpdate());
         } else {
           await _expenseCollection!.add(newExpense.toMapForCreate());
         }
@@ -239,24 +276,30 @@ class ExpenseController extends GetxController {
   }
 
   Future<void> deleteExpense(String docId) async {
-    if(editingId.value == docId) clearControllers();
+    if (editingId.value == docId) clearControllers();
     await _expenseCollection!.doc(docId).delete();
     _showSnackbar('Success', 'Expense deleted successfully');
   }
 
   Future<void> saveIncome() async {
     if (formKey.currentState!.validate()) {
-      Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+      Get.dialog(const Center(child: CircularProgressIndicator()),
+          barrierDismissible: false);
       final isUpdating = editingId.value != null;
       String successMessage = isUpdating ? 'Income updated!' : 'Income added!';
       final newIncome = Income(
-        id: editingId.value, category: selectedCategory.value,
-        amount: double.parse(amountController.text), date: selectedDate.value,
-        notes: notesController.text, createdAt: isUpdating ? null : Timestamp.now(),
+        id: editingId.value,
+        category: selectedCategory.value,
+        amount: double.parse(amountController.text),
+        date: selectedDate.value,
+        notes: notesController.text,
+        createdAt: isUpdating ? null : Timestamp.now(),
       );
       try {
         if (isUpdating) {
-          await _incomeCollection!.doc(editingId.value).update(newIncome.toMapForUpdate());
+          await _incomeCollection!
+              .doc(editingId.value)
+              .update(newIncome.toMapForUpdate());
         } else {
           await _incomeCollection!.add(newIncome.toMapForCreate());
         }
@@ -271,17 +314,21 @@ class ExpenseController extends GetxController {
   }
 
   Future<void> deleteIncome(String docId) async {
-    if(editingId.value == docId) clearControllers(isExpense: false);
+    if (editingId.value == docId) clearControllers(isExpense: false);
     await _incomeCollection!.doc(docId).delete();
     _showSnackbar('Success', 'Income entry deleted');
   }
 
   void _showSnackbar(String title, String message) {
     Get.snackbar(
-      title, message, snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.black87, colorText: Colors.white,
+      title,
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.black87,
+      colorText: Colors.white,
       duration: const Duration(milliseconds: 1800),
-      margin: const EdgeInsets.all(12), borderRadius: 10,
+      margin: const EdgeInsets.all(12),
+      borderRadius: 10,
     );
   }
 

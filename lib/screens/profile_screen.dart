@@ -1,4 +1,5 @@
 // lib/screens/profile_screen.dart
+import 'package:cached_network_image/cached_network_image.dart'; // <<< CORRECTED IMPORT
 import 'package:expense_tracker/controllers/auth_controller.dart';
 import 'package:expense_tracker/controllers/settings_controller.dart';
 import 'package:expense_tracker/main.dart';
@@ -45,7 +46,7 @@ class ProfileScreen extends StatelessWidget {
                           radius: 35,
                           backgroundColor: Theme.of(context).cardColor,
                           backgroundImage: authController.firestoreUser.value?['profilePictureUrl'] != null
-                              ? NetworkImage(authController.firestoreUser.value!['profilePictureUrl'])
+                              ? CachedNetworkImageProvider(authController.firestoreUser.value!['profilePictureUrl'])
                               : null,
                           child: authController.firestoreUser.value?['profilePictureUrl'] == null
                               ? Icon(IconlyBold.profile, size: 30, color: Theme.of(context).colorScheme.secondary)
@@ -133,7 +134,7 @@ class ProfileScreen extends StatelessWidget {
                   title: 'About',
                   subtitle: 'Learn more about the app',
                    onTap: () {
-                     _showInfoSnackbar('Info', 'Expense Tracker v1.0.0');
+                     _showInfoSnackbar('Info', 'InEx v1.0.0');
                    },
                 ),
                  _buildSettingsTile(

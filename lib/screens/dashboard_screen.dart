@@ -1,10 +1,11 @@
 // lib/screens/dashboard_screen.dart
+import 'package:cached_network_image/cached_network_image.dart'; // <<< CORRECTED IMPORT
 import 'package:expense_tracker/controllers/auth_controller.dart';
 import 'package:expense_tracker/controllers/expense_controller.dart';
 import 'package:expense_tracker/controllers/navigation_controller.dart';
 import 'package:expense_tracker/main.dart';
 import 'package:expense_tracker/screens/add_edit_transaction_screen.dart';
-import 'package:expense_tracker/screens/transaction_tile.dart';
+import 'package:expense_tracker/screens/transaction_tile.dart'; // <<< CORRECTED IMPORT
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:get/get.dart';
@@ -52,11 +53,18 @@ class DashboardScreen extends StatelessWidget {
                     CircleAvatar(
                       radius: 22,
                       backgroundColor: Theme.of(context).cardColor,
-                      backgroundImage: authController.firestoreUser.value?['profilePictureUrl'] != null
-                          ? NetworkImage(authController.firestoreUser.value!['profilePictureUrl'])
+                      backgroundImage: authController
+                                  .firestoreUser.value?['profilePictureUrl'] !=
+                              null
+                          ? CachedNetworkImageProvider(authController
+                              .firestoreUser.value!['profilePictureUrl'])
                           : null,
-                      child: authController.firestoreUser.value?['profilePictureUrl'] == null
-                          ? Icon(IconlyLight.profile, size: 20, color: Theme.of(context).colorScheme.secondary)
+                      child: authController
+                                  .firestoreUser.value?['profilePictureUrl'] ==
+                              null
+                          ? Icon(IconlyLight.profile,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.secondary)
                           : null,
                     ),
                     const SizedBox(width: 12),
@@ -79,7 +87,8 @@ class DashboardScreen extends StatelessWidget {
               ),
               actions: [
                 IconButton(
-                  icon: Icon(IconlyLight.logout, color: Theme.of(context).primaryColor),
+                  icon: Icon(IconlyLight.logout,
+                      color: Theme.of(context).primaryColor),
                   onPressed: () => authController.logout(),
                 ),
                 const SizedBox(width: 8),
@@ -116,15 +125,19 @@ class DashboardScreen extends StatelessWidget {
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
-                            final transaction = expenseController.allTransactions[index];
+                            final transaction =
+                                expenseController.allTransactions[index];
                             return TransactionTile(transaction: transaction);
                           },
-                          childCount: expenseController.allTransactions.length > 5 ? 5 : expenseController.allTransactions.length,
+                          childCount:
+                              expenseController.allTransactions.length > 5
+                                  ? 5
+                                  : expenseController.allTransactions.length,
                         ),
                       ),
                     ),
             ),
-             const SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: SizedBox(height: 80),
             ),
           ],
@@ -133,7 +146,8 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBalanceCard(ExpenseController controller, NumberFormat formatter) {
+  Widget _buildBalanceCard(
+      ExpenseController controller, NumberFormat formatter) {
     return Obx(
       () => Container(
         padding: const EdgeInsets.all(24),
@@ -191,7 +205,8 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title, VoidCallback onViewAll) {
+  Widget _buildSectionHeader(
+      BuildContext context, String title, VoidCallback onViewAll) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -202,7 +217,8 @@ class DashboardScreen extends StatelessWidget {
                 ?.copyWith(fontWeight: FontWeight.bold)),
         TextButton(
           onPressed: onViewAll,
-          child: Text('View All', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+          child: Text('View All',
+              style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
         ),
       ],
     );
