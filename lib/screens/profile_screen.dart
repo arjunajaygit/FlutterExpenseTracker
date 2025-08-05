@@ -2,6 +2,7 @@
 import 'package:expense_tracker/controllers/auth_controller.dart';
 import 'package:expense_tracker/controllers/settings_controller.dart';
 import 'package:expense_tracker/main.dart';
+import 'package:expense_tracker/screens/account_management_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:get/get.dart';
@@ -9,17 +10,12 @@ import 'package:get/get.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  // A helper for our new standardized snackbar
   void _showInfoSnackbar(String title, String message) {
     Get.snackbar(
-      title,
-      message,
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.black87,
-      colorText: Colors.white,
+      title, message, snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.black87, colorText: Colors.white,
       duration: const Duration(milliseconds: 1800),
-      margin: const EdgeInsets.all(12),
-      borderRadius: 10,
+      margin: const EdgeInsets.all(12), borderRadius: 10,
     );
   }
 
@@ -40,9 +36,32 @@ class ProfileScreen extends StatelessWidget {
             Obx(
               () => Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 35,
-                    backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=3'),
+                  GestureDetector(
+                    onTap: () => authController.showImageSourceActionSheet(),
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 35,
+                          backgroundColor: Theme.of(context).cardColor,
+                          backgroundImage: authController.firestoreUser.value?['profilePictureUrl'] != null
+                              ? NetworkImage(authController.firestoreUser.value!['profilePictureUrl'])
+                              : null,
+                          child: authController.firestoreUser.value?['profilePictureUrl'] == null
+                              ? Icon(IconlyBold.profile, size: 30, color: Theme.of(context).colorScheme.secondary)
+                              : null,
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).cardColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2)
+                          ),
+                          child: Icon(IconlyBold.camera, size: 16, color: Theme.of(context).primaryColor),
+                        )
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -74,9 +93,9 @@ class ProfileScreen extends StatelessWidget {
                   context: context,
                   icon: IconlyLight.profile,
                   title: 'Account',
-                  subtitle: 'Manage your account details',
+                  subtitle: 'Manage profile, password & more',
                   onTap: () {
-                    _showInfoSnackbar('Info', 'Account management coming soon!');
+                    Get.to(() => const AccountManagementScreen());
                   },
                 ),
                 _buildSettingsTile(

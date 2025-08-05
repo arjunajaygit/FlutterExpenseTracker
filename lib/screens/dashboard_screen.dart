@@ -24,7 +24,6 @@ class DashboardScreen extends StatelessWidget {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // When adding a new transaction, reset controllers to the 'expense' state.
           expenseController.clearControllers(isExpense: true);
           Get.to(() => const AddEditTransactionScreen());
         },
@@ -50,10 +49,15 @@ class DashboardScreen extends StatelessWidget {
               title: Obx(
                 () => Row(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 22,
-                      backgroundImage:
-                          NetworkImage('https://i.pravatar.cc/150?img=3'),
+                      backgroundColor: Theme.of(context).cardColor,
+                      backgroundImage: authController.firestoreUser.value?['profilePictureUrl'] != null
+                          ? NetworkImage(authController.firestoreUser.value!['profilePictureUrl'])
+                          : null,
+                      child: authController.firestoreUser.value?['profilePictureUrl'] == null
+                          ? Icon(IconlyLight.profile, size: 20, color: Theme.of(context).colorScheme.secondary)
+                          : null,
                     ),
                     const SizedBox(width: 12),
                     Column(
@@ -121,7 +125,7 @@ class DashboardScreen extends StatelessWidget {
                     ),
             ),
              const SliverToBoxAdapter(
-              child: SizedBox(height: 80), // Space for the FAB
+              child: SizedBox(height: 80),
             ),
           ],
         ),

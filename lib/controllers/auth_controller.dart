@@ -1,10 +1,13 @@
 // lib/controllers/auth_controller.dart
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/screens/auth_wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:expense_tracker/controllers/navigation_controller.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AuthController extends GetxController {
   static AuthController get instance => Get.find();
@@ -23,7 +26,6 @@ class AuthController extends GetxController {
     ever(firebaseUser, _onUserChanged);
   }
 
-  // A helper for our new standardized snackbar
   void _showSnackbar(String title, String message) {
     Get.snackbar(
       title,
@@ -31,7 +33,7 @@ class AuthController extends GetxController {
       snackPosition: SnackPosition.BOTTOM,
       backgroundColor: Colors.black87,
       colorText: Colors.white,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 2000),
       margin: const EdgeInsets.all(12),
       borderRadius: 10,
     );
@@ -63,6 +65,127 @@ class AuthController extends GetxController {
     }
   }
 
+  // --- ACCOUNT MANAGEMENT ---
+
+  void showImageSourceActionSheet() {
+    Get.bottomSheet(
+      SafeArea(
+        child: Wrap(
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () {
+                Get.back();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () {
+                Get.back();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+      backgroundColor: Get.theme.cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: source, imageQuality: 50);
+
+    if (image != null) {
+      await _uploadProfilePicture(image);
+    }
+  }
+
+  Future<void> _uploadProfilePicture(XFile imageFile) async {
+    try {
+      Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+      final user = _auth.currentUser;
+      if (user == null) throw 'No user logged in';
+
+      final storageRef = FirebaseStorage.instance.ref();
+      final imageRef = storageRef.child('profile_pictures/${user.uid}');
+
+      final uploadTask = await imageRef.putFile(File(imageFile.path));
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+
+      await _firestore.collection('users').doc(user.uid).update({
+        'profilePictureUrl': downloadUrl,
+      });
+
+      // Manually refresh the local user data to update the UI instantly
+      firestoreUser.value?['profilePictureUrl'] = downloadUrl;
+      firestoreUser.refresh();
+
+      if (Get.isDialogOpen ?? false) Get.back();
+      _showSnackbar('Success', 'Profile picture updated!');
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      _showSnackbar('Error', 'Failed to upload picture: $e');
+    }
+  }
+
+  Future<void> updateUserName(String newName) async {
+    try {
+      Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+      final user = _auth.currentUser;
+      if (user == null) throw 'No user logged in';
+
+      await _firestore.collection('users').doc(user.uid).update({'name': newName});
+
+      // Manually refresh local data
+      firestoreUser.value?['name'] = newName;
+      firestoreUser.refresh();
+
+      if (Get.isDialogOpen ?? false) Get.back();
+      _showSnackbar('Success', 'Name updated successfully!');
+    } catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      _showSnackbar('Error', 'Failed to update name: $e');
+    }
+  }
+
+  Future<void> updateUserPassword(String currentPassword, String newPassword) async {
+    try {
+      Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+      final user = _auth.currentUser;
+      if (user == null || user.email == null) throw 'No user logged in';
+
+      AuthCredential credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(newPassword);
+
+      if (Get.isDialogOpen ?? false) Get.back();
+      Get.back(); 
+      _showSnackbar('Success', 'Password updated successfully!');
+
+    } on FirebaseAuthException catch (e) {
+      if (Get.isDialogOpen ?? false) Get.back();
+      if (e.code == 'wrong-password' || e.code == 'INVALID_LOGIN_CREDENTIALS') {
+        _showSnackbar('Error', 'Incorrect current password provided.');
+      } else if (e.code == 'weak-password') {
+        _showSnackbar('Error', 'The new password is too weak.');
+      } else {
+        _showSnackbar('Error', 'An error occurred: ${e.message}');
+      }
+    }
+  }
+
+  // --- AUTHENTICATION ---
+  
   Future<void> signUpWithEmailAndPassword({
     required String name,
     required String email,
@@ -83,6 +206,7 @@ class AuthController extends GetxController {
 
       await _firestore.collection('users').doc(newUser.uid).set({
         'name': name, 'email': email, 'phone': phoneNumber, 'createdAt': Timestamp.now(),
+        'profilePictureUrl': null, // Initialize profile picture field
       });
       Get.offAll(() => const AuthWrapper());
       Future.delayed(const Duration(milliseconds: 400), () {
