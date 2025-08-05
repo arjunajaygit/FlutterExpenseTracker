@@ -4,7 +4,6 @@ import 'package:expense_tracker/screens/auth_wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
-// <<< THIS IS THE CORRECTED IMPORT PATH
 import 'package:expense_tracker/controllers/navigation_controller.dart';
 
 class AuthController extends GetxController {
@@ -24,13 +23,25 @@ class AuthController extends GetxController {
     ever(firebaseUser, _onUserChanged);
   }
 
+  // A helper for our new standardized snackbar
+  void _showSnackbar(String title, String message) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.black87,
+      colorText: Colors.white,
+      duration: const Duration(milliseconds: 1800),
+      margin: const EdgeInsets.all(12),
+      borderRadius: 10,
+    );
+  }
+
   void _onUserChanged(User? user) {
     if (user == null) {
-      firestoreUser.value = null; // Clear user data on logout
+      firestoreUser.value = null;
       isInitialized.value = true;
     } else {
-      // When user state changes to logged in, fetch their data.
-      // This is now the primary trigger for data loading after login.
       _fetchFirestoreUserData(user);
     }
   }
@@ -42,13 +53,12 @@ class AuthController extends GetxController {
         firestoreUser.value = doc.data()!;
       } else {
         await user.delete();
-        Get.snackbar('Error', 'User data is corrupted. Account cleaned up.', snackPosition: SnackPosition.BOTTOM);
+        _showSnackbar('Error', 'User data is corrupted. Account cleaned up.');
       }
     } on FirebaseException catch (e) {
-      Get.snackbar('Error', 'Failed to load user data: ${e.message}', snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Error', 'Failed to load user data: ${e.message}');
       await logout();
     } finally {
-      // Mark as initialized so the AuthWrapper can proceed.
       isInitialized.value = true;
     }
   }
@@ -62,30 +72,26 @@ class AuthController extends GetxController {
     try {
       Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
       final emailQuery = await _firestore.collection('users').where('email', isEqualTo: email).limit(1).get();
-      if (emailQuery.docs.isNotEmpty) {
-        throw 'This email address is already registered.';
-      }
+      if (emailQuery.docs.isNotEmpty) throw 'This email address is already registered.';
+      
       final phoneQuery = await _firestore.collection('users').where('phone', isEqualTo: phoneNumber).limit(1).get();
-      if (phoneQuery.docs.isNotEmpty) {
-        throw 'This phone number is already registered.';
-      }
+      if (phoneQuery.docs.isNotEmpty) throw 'This phone number is already registered.';
+      
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
       User? newUser = userCredential.user;
       if (newUser == null) throw 'Account creation failed unexpectedly.';
+
       await _firestore.collection('users').doc(newUser.uid).set({
-        'name': name,
-        'email': email,
-        'phone': phoneNumber,
-        'createdAt': Timestamp.now(),
+        'name': name, 'email': email, 'phone': phoneNumber, 'createdAt': Timestamp.now(),
       });
       Get.offAll(() => const AuthWrapper());
       Future.delayed(const Duration(milliseconds: 400), () {
-        Get.snackbar('Success', 'Account created successfully!', snackPosition: SnackPosition.BOTTOM);
+        _showSnackbar('Success', 'Account created successfully!');
       });
     } catch (e) {
       if (Get.isDialogOpen ?? false) Get.back();
       String errorMessage = e is FirebaseException ? e.message ?? e.toString() : e.toString();
-      Get.snackbar('Sign-up Failed', errorMessage, snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Sign-up Failed', errorMessage);
     }
   }
 
@@ -96,7 +102,7 @@ class AuthController extends GetxController {
       Get.offAll(() => const AuthWrapper());
     } on FirebaseException catch (e) {
       if (Get.isDialogOpen ?? false) Get.back();
-      Get.snackbar('Login Failed', e.message ?? 'An unknown error occurred.', snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Login Failed', e.message ?? 'An unknown error occurred.');
     }
   }
 
@@ -105,16 +111,14 @@ class AuthController extends GetxController {
       Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
       final querySnapshot = await _firestore.collection('users').where('phone', isEqualTo: phoneNumber).limit(1).get();
       if (Get.isDialogOpen ?? false) Get.back();
-
-      if (querySnapshot.docs.isNotEmpty) {
-        return true;
-      } else {
-        Get.snackbar('Error', 'This phone number is not registered.', snackPosition: SnackPosition.BOTTOM);
+      if (querySnapshot.docs.isNotEmpty) return true;
+      else {
+        _showSnackbar('Error', 'This phone number is not registered.');
         return false;
       }
     } catch (e) {
       if (Get.isDialogOpen ?? false) Get.back();
-      Get.snackbar('Error', 'An unexpected error occurred.', snackPosition: SnackPosition.BOTTOM);
+      _showSnackbar('Error', 'An unexpected error occurred.');
       return false;
     }
   }
@@ -123,23 +127,20 @@ class AuthController extends GetxController {
     try {
       Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
       final querySnapshot = await _firestore.collection('users').where('phone', isEqualTo: phoneNumber).limit(1).get();
-      if (querySnapshot.docs.isEmpty) {
-        throw FirebaseAuthException(code: 'user-not-found');
-      }
-      final userData = querySnapshot.docs.first.data();
-      final String email = userData['email'];
-
+      if (querySnapshot.docs.isEmpty) throw FirebaseAuthException(code: 'user-not-found');
+      
+      final String email = querySnapshot.docs.first.data()['email'];
+      
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       Get.offAll(() => const AuthWrapper());
-
     } on FirebaseException catch (e) {
       if (Get.isDialogOpen ?? false) Get.back();
       if (e.code == 'user-not-found') {
-        Get.snackbar('Login Failed', 'This phone number is not registered.', snackPosition: SnackPosition.BOTTOM);
+        _showSnackbar('Login Failed', 'This phone number is not registered.');
       } else if (e.code == 'wrong-password' || e.code == 'INVALID_LOGIN_CREDENTIALS') {
-        Get.snackbar('Login Failed', 'Incorrect password. Please try again.', snackPosition: SnackPosition.BOTTOM);
+        _showSnackbar('Login Failed', 'Incorrect password. Please try again.');
       } else {
-        Get.snackbar('Login Failed', e.message ?? 'An unknown error occurred.', snackPosition: SnackPosition.BOTTOM);
+        _showSnackbar('Login Failed', e.message ?? 'An unknown error occurred.');
       }
     }
   }

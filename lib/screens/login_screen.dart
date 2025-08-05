@@ -1,7 +1,9 @@
 // lib/screens/login_screen.dart
 import 'package:expense_tracker/controllers/auth_controller.dart';
+import 'package:expense_tracker/main.dart'; // Import for AppColors
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -11,41 +13,31 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-enum LoginMethod { email, phone }
-
 class _LoginScreenState extends State<LoginScreen> {
   final AuthController authController = AuthController.instance;
-  LoginMethod _loginMethod = LoginMethod.email;
 
-  // Form keys
   final _emailFormKey = GlobalKey<FormState>();
   final _phoneFormKey = GlobalKey<FormState>();
 
-  // Controllers
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   String? phoneNumber;
-  
+
   bool _showPasswordForPhone = false;
 
   void _loginWithEmail() {
     if (_emailFormKey.currentState!.validate()) {
       authController.loginWithEmail(
-          emailController.text.trim(), passwordController.text);
+          emailController.text.trim(), passwordController.text.trim());
     }
   }
 
-  // --- UPDATED DYNAMIC ACTION FOR PHONE LOGIN BUTTON ---
-  void _handlePhoneNextOrLogin() async { // <-- Make the function async
-    // If password field is not visible, it's the "Next" action to check phone
+  void _handlePhoneNextOrLogin() async {
     if (!_showPasswordForPhone) {
       if (_phoneFormKey.currentState!.validate()) {
         if (phoneNumber == null || phoneNumber!.isEmpty) return;
-
-        // Call the new check method in the controller
-        final bool isRegistered = await authController.checkIfPhoneIsRegistered(phoneNumber!);
-        
-        // Only show the password field if the check was successful
+        final bool isRegistered =
+            await authController.checkIfPhoneIsRegistered(phoneNumber!);
         if (isRegistered) {
           setState(() {
             _showPasswordForPhone = true;
@@ -53,10 +45,10 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } else {
-      // If password field is visible, it's the final "Login" action
       if (_phoneFormKey.currentState!.validate()) {
         if (phoneNumber == null || phoneNumber!.isEmpty) return;
-        authController.loginWithPhoneAndPassword(phoneNumber!, passwordController.text);
+        authController.loginWithPhoneAndPassword(
+            phoneNumber!, passwordController.text.trim());
       }
     }
   }
@@ -64,39 +56,81 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 20),
-            Text('Welcome Back!', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            Text('Log in to your account', style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            SegmentedButton<LoginMethod>(
-              segments: const <ButtonSegment<LoginMethod>>[
-                ButtonSegment<LoginMethod>(value: LoginMethod.email, label: Text('Email'), icon: Icon(Icons.email)),
-                ButtonSegment<LoginMethod>(value: LoginMethod.phone, label: Text('Phone'), icon: Icon(Icons.phone)),
-              ],
-              selected: {_loginMethod},
-              onSelectionChanged: (Set<LoginMethod> newSelection) {
-                setState(() {
-                  _loginMethod = newSelection.first;
-                  _showPasswordForPhone = false;
-                  passwordController.clear();
-                });
-              },
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Welcome Back!',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Log in to continue your expense journey.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.secondary),
+                  ),
+                  const SizedBox(height: 40),
+                  DefaultTabController(
+                    length: 2,
+                    child: Column(
+                      children: [
+                        TabBar(
+                          indicatorColor: Theme.of(context).primaryColor,
+                          labelColor: Theme.of(context).primaryColor,
+                          unselectedLabelColor: Theme.of(context).colorScheme.secondary,
+                          tabs: const [
+                            Tab(text: 'Email'),
+                            Tab(text: 'Phone'),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        // --- THIS IS THE FIX ---
+                        // Wrap the TabBarView in a SizedBox to give it a specific height.
+                        SizedBox(
+                          height: 250, // Adjust this height as needed for your content
+                          child: TabBarView(
+                            children: [
+                              _buildEmailForm(),
+                              _buildPhoneForm(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text("Don't have an account?",
+                          style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
+                      TextButton(
+                        onPressed: () => Get.toNamed('/signup'),
+                        child: Text(
+                          'Sign Up',
+                          style: TextStyle(
+                              color: Theme.of(context).primaryColor,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 24),
-
-            if (_loginMethod == LoginMethod.email) _buildEmailForm(),
-            if (_loginMethod == LoginMethod.phone) _buildPhoneForm(),
-            
-            const SizedBox(height: 16),
-            TextButton(onPressed: () => Get.toNamed('/signup'), child: const Text("Don't have an account? Sign Up")),
-          ],
+          ),
         ),
       ),
     );
@@ -106,12 +140,23 @@ class _LoginScreenState extends State<LoginScreen> {
     return Form(
       key: _emailFormKey,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(controller: emailController, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress, validator: (val) => GetUtils.isEmail(val!) ? null : 'Enter a valid email'),
+          TextFormField(
+              controller: emailController,
+              decoration: const InputDecoration(hintText: 'Email Address'),
+              keyboardType: TextInputType.emailAddress,
+              validator: (val) =>
+                  GetUtils.isEmail(val!) ? null : 'Enter a valid email'),
           const SizedBox(height: 16),
-          TextFormField(controller: passwordController, decoration: const InputDecoration(labelText: 'Password'), obscureText: true, validator: (val) => val!.length >= 6 ? null : 'Password is too short'),
-          const SizedBox(height: 24),
-          ElevatedButton(onPressed: _loginWithEmail, child: const Text('Login')),
+          TextFormField(
+              controller: passwordController,
+              decoration: const InputDecoration(hintText: 'Password'),
+              obscureText: true,
+              validator: (val) =>
+                  val!.length >= 6 ? null : 'Password is too short'),
+          const Spacer(), // Use Spacer to push the button to the bottom
+          _buildGradientButton('Login', _loginWithEmail),
         ],
       ),
     );
@@ -121,33 +166,58 @@ class _LoginScreenState extends State<LoginScreen> {
     return Form(
       key: _phoneFormKey,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           IntlPhoneField(
-            decoration: const InputDecoration(labelText: 'Phone Number'),
+            decoration: const InputDecoration(hintText: 'Phone Number'),
             initialCountryCode: 'IN',
             onChanged: (phone) => phoneNumber = phone.completeNumber,
-            validator: (phone) {
-              if ((phone?.number ?? '').isEmpty) {
-                return 'Please enter your phone number';
-              }
-              return null;
-            },
+            validator: (phone) =>
+                (phone?.number ?? '').isEmpty ? 'Please enter a number' : null,
           ),
           if (_showPasswordForPhone) ...[
             const SizedBox(height: 16),
             TextFormField(
               controller: passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
+              decoration: const InputDecoration(hintText: 'Password'),
               obscureText: true,
-              validator: (val) => (val?.length ?? 0) < 6 ? 'Password is too short' : null,
+              validator: (val) =>
+                  (val?.length ?? 0) < 6 ? 'Password is too short' : null,
             ),
           ],
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _handlePhoneNextOrLogin,
-            child: Text(_showPasswordForPhone ? 'Login' : 'Next'),
-          ),
+          const Spacer(), // Use Spacer to push the button to the bottom
+          _buildGradientButton(
+              _showPasswordForPhone ? 'Login' : 'Next', _handlePhoneNextOrLogin),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGradientButton(String text, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        padding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        elevation: 0,
+      ),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Container(
+          height: 55,
+          alignment: Alignment.center,
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
     );
   }

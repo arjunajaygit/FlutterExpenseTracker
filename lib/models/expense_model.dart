@@ -1,4 +1,4 @@
-// /Users/arjun/ExpenseTracker/lib/models/expense_model.dart
+// lib/models/expense_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Expense {
@@ -7,7 +7,7 @@ class Expense {
   double amount;
   DateTime date;
   String? notes;
-  Timestamp createdAt;
+  Timestamp? createdAt; // Can be null for updates
 
   Expense({
     this.id,
@@ -15,7 +15,7 @@ class Expense {
     required this.amount,
     required this.date,
     this.notes,
-    required this.createdAt,
+    this.createdAt,
   });
 
   // Factory constructor to create an Expense from a Firestore document
@@ -27,18 +27,29 @@ class Expense {
       amount: (data['amount'] ?? 0.0).toDouble(),
       date: (data['date'] as Timestamp).toDate(),
       notes: data['notes'],
-      createdAt: data['createdAt'] ?? Timestamp.now(),
+      createdAt: data['createdAt'],
     );
   }
 
-  // Method to convert an Expense object to a map for Firestore
-  Map<String, dynamic> toMap() {
+  // Method for creating a new expense
+  Map<String, dynamic> toMapForCreate() {
     return {
       'category': category,
       'amount': amount,
       'date': Timestamp.fromDate(date),
       'notes': notes,
-      'createdAt': createdAt,
+      'createdAt': createdAt ?? Timestamp.now(), // Ensure it's set
+    };
+  }
+  
+  // Method for updating an existing expense
+  Map<String, dynamic> toMapForUpdate() {
+    return {
+      'category': category,
+      'amount': amount,
+      'date': Timestamp.fromDate(date),
+      'notes': notes,
+      // We don't update createdAt, so it's not included here
     };
   }
 }

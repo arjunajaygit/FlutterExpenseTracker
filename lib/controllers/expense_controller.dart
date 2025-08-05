@@ -1,20 +1,23 @@
 // lib/controllers/expense_controller.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/models/expense_model.dart';
-import 'package:expense_tracker/screens/auth_wrapper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:get/get.dart';
 
+class CategoryInfo {
+  final IconData icon;
+  final Color color;
+  CategoryInfo(this.icon, this.color);
+}
+
 class ExpenseController extends GetxController {
+  // ... (properties are unchanged)
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   CollectionReference? _expenseCollection;
-
-  // --- Core State ---
   var expenses = <Expense>[].obs;
-  var totalExpenses = 0.0.obs; // <<< ADDED BACK
-
-  // --- NEW DASHBOARD STATE ---
+  var totalExpenses = 0.0.obs;
   var weeklyTotalSpend = 0.0.obs;
   var monthlyTotalSpend = 0.0.obs;
   var yearlyTotalSpend = 0.0.obs;
@@ -24,9 +27,21 @@ class ExpenseController extends GetxController {
   var topWeeklyCategory = 'N/A'.obs;
   var topMonthlyCategory = 'N/A'.obs;
   var topYearlyCategory = 'N/A'.obs;
-
-  // --- Form State ---
-  final List<String> categories = ['Food', 'Travel', 'Bills', 'Shopping', 'Other'];
+  final List<String> categories = [
+    'Food', 'Shopping', 'Entertainment', 'Travel', 'Bills',
+    'Home Rent', 'Pet Groom', 'Recharge', 'Other'
+  ];
+  final Map<String, CategoryInfo> categoryDetails = {
+    'Food': CategoryInfo(IconlyBold.category, Colors.orange.shade300),
+    'Shopping': CategoryInfo(IconlyBold.buy, Colors.purple.shade300),
+    'Entertainment': CategoryInfo(IconlyBold.game, Colors.red.shade300),
+    'Travel': CategoryInfo(IconlyBold.discovery, Colors.green.shade300),
+    'Bills': CategoryInfo(IconlyBold.document, Colors.blue.shade300),
+    'Home Rent': CategoryInfo(IconlyBold.home, Colors.brown.shade300),
+    'Pet Groom': CategoryInfo(IconlyBold.user3, Colors.pink.shade300),
+    'Recharge': CategoryInfo(IconlyBold.call, Colors.teal.shade300),
+    'Other': CategoryInfo(IconlyBold.moreCircle, Colors.grey.shade400),
+  };
   final formKey = GlobalKey<FormState>();
   late TextEditingController amountController;
   late TextEditingController notesController;
@@ -34,15 +49,30 @@ class ExpenseController extends GetxController {
   var selectedDate = DateTime.now().obs;
   final Rxn<String> editingId = Rxn<String>();
 
+  // A helper for our new standardized snackbar
+  void _showSnackbar(String title, String message) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.black87,
+      colorText: Colors.white,
+      duration: const Duration(milliseconds: 1800),
+      margin: const EdgeInsets.all(12),
+      borderRadius: 10,
+    );
+  }
+
+  // ... (onInit and other data methods are unchanged)
   @override
   void onInit() {
     super.onInit();
     amountController = TextEditingController();
     notesController = TextEditingController();
-
     FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
-        _expenseCollection = _firestore.collection('users').doc(user.uid).collection('expenses');
+        _expenseCollection =
+            _firestore.collection('users').doc(user.uid).collection('expenses');
         expenses.bindStream(getExpensesStream());
       } else {
         expenses.value = [];
@@ -50,69 +80,48 @@ class ExpenseController extends GetxController {
         clearDashboardData();
       }
     });
-
-    // --- MODIFIED LISTENER ---
     ever(expenses, (_) {
-      calculateTotal(); // <<< ADDED BACK
+      calculateTotal();
       processDashboardData();
     });
   }
-
   Stream<List<Expense>> getExpensesStream() {
     if (_expenseCollection == null) return Stream.value([]);
-    return _expenseCollection!.orderBy('createdAt', descending: true).snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Expense.fromFirestore(doc)).toList());
+    return _expenseCollection!
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Expense.fromFirestore(doc)).toList());
   }
-
-  // <<< ADDED THIS METHOD BACK ---
   void calculateTotal() {
     totalExpenses.value = expenses.fold(0.0, (sum, item) => sum + item.amount);
   }
-
-  // --- NEW, CATEGORY-FOCUSED DATA PROCESSING ---
   void processDashboardData() {
-    if (expenses.isEmpty) {
-      clearDashboardData();
-      return;
-    }
-    
+    if (expenses.isEmpty) { clearDashboardData(); return; }
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
     final startOfWeekDateOnly = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
     final startOfMonth = DateTime(now.year, now.month, 1);
     final startOfYear = DateTime(now.year, 1, 1);
-
     final weekMap = <String, double>{};
     final monthMap = <String, double>{};
     final yearMap = <String, double>{};
-
     for (var expense in expenses) {
       final expenseDateOnly = DateTime(expense.date.year, expense.date.month, expense.date.day);
-
-      if (!expenseDateOnly.isBefore(startOfYear)) {
-        yearMap.update(expense.category, (value) => value + expense.amount, ifAbsent: () => expense.amount);
-      }
-      if (!expenseDateOnly.isBefore(startOfMonth)) {
-        monthMap.update(expense.category, (value) => value + expense.amount, ifAbsent: () => expense.amount);
-      }
-      if (!expenseDateOnly.isBefore(startOfWeekDateOnly)) {
-        weekMap.update(expense.category, (value) => value + expense.amount, ifAbsent: () => expense.amount);
-      }
+      if (!expenseDateOnly.isBefore(startOfYear)) { yearMap.update(expense.category, (value) => value + expense.amount, ifAbsent: () => expense.amount); }
+      if (!expenseDateOnly.isBefore(startOfMonth)) { monthMap.update(expense.category, (value) => value + expense.amount, ifAbsent: () => expense.amount); }
+      if (!expenseDateOnly.isBefore(startOfWeekDateOnly)) { weekMap.update(expense.category, (value) => value + expense.amount, ifAbsent: () => expense.amount); }
     }
-
     weeklyCategorySpends.value = weekMap;
     weeklyTotalSpend.value = weekMap.values.fold(0.0, (sum, item) => sum + item);
     topWeeklyCategory.value = weekMap.isNotEmpty ? weekMap.entries.reduce((a, b) => a.value > b.value ? a : b).key : 'N/A';
-    
     monthlyCategorySpends.value = monthMap;
     monthlyTotalSpend.value = monthMap.values.fold(0.0, (sum, item) => sum + item);
     topMonthlyCategory.value = monthMap.isNotEmpty ? monthMap.entries.reduce((a, b) => a.value > b.value ? a : b).key : 'N/A';
-
     yearlyCategorySpends.value = yearMap;
     yearlyTotalSpend.value = yearMap.values.fold(0.0, (sum, item) => sum + item);
     topYearlyCategory.value = yearMap.isNotEmpty ? yearMap.entries.reduce((a, b) => a.value > b.value ? a : b).key : 'N/A';
   }
-
   void clearDashboardData() {
     totalExpenses.value = 0.0;
     weeklyTotalSpend.value = 0.0;
@@ -125,16 +134,13 @@ class ExpenseController extends GetxController {
     topMonthlyCategory.value = 'N/A';
     topYearlyCategory.value = 'N/A';
   }
-
-  // --- Form and CRUD Methods ---
   void setupEditScreen(Expense expense) {
     editingId.value = expense.id;
-    amountController.text = expense.amount.toString();
+    amountController.text = expense.amount.toStringAsFixed(0);
     notesController.text = expense.notes ?? '';
     selectedCategory.value = expense.category;
     selectedDate.value = expense.date;
   }
-
   void clearControllers() {
     editingId.value = null;
     amountController.clear();
@@ -155,22 +161,20 @@ class ExpenseController extends GetxController {
         amount: double.parse(amountController.text),
         date: selectedDate.value,
         notes: notesController.text,
-        createdAt: Timestamp.now(),
+        createdAt: isUpdating ? null : Timestamp.now(),
       );
       try {
         if (isUpdating) {
-          await _expenseCollection!.doc(editingId.value).update(newExpense.toMap());
+          await _expenseCollection!.doc(editingId.value).update(newExpense.toMapForUpdate());
         } else {
-          await _expenseCollection!.add(newExpense.toMap());
+          await _expenseCollection!.add(newExpense.toMapForCreate());
         }
         if (Get.isDialogOpen ?? false) Get.back();
-        Get.offAll(() => const AuthWrapper(), transition: Transition.fadeIn);
-        Future.delayed(const Duration(milliseconds: 400), () {
-          Get.snackbar("Success", successMessage, snackPosition: SnackPosition.BOTTOM);
-        });
+        Get.back();
+        _showSnackbar("Success", successMessage);
       } on FirebaseException catch (e) {
         if (Get.isDialogOpen ?? false) Get.back();
-        Get.snackbar('Error', "Failed to save expense: ${e.message}");
+        _showSnackbar('Error', "Failed to save expense: ${e.message}");
       }
     }
   }
@@ -178,7 +182,8 @@ class ExpenseController extends GetxController {
   Future<void> deleteExpense(String docId) async {
     if(editingId.value == docId) clearControllers();
     await _expenseCollection!.doc(docId).delete();
-    Get.snackbar('Success', 'Expense deleted successfully');
+    // Use the standardized snackbar
+    _showSnackbar('Success', 'Expense deleted successfully');
   }
 
   @override
